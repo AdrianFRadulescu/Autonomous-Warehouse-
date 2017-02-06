@@ -30,4 +30,5 @@ public class Pick {
                         *(1 + ITEM.getX_coord() + ITEM.getY_coord()))/2 + ITEM.getY_coord()
         );
     }
+
 }

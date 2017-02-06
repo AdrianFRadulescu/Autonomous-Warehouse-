@@ -6,7 +6,8 @@ import jobselection.item.ItemTable;
 import java.util.*;
 
 /**
- * Created by adrian_radulescu1997 on 24.02.2016.
+ * The class representing the job object and its behaviors
+ * Created by Adrian Radulescu on 24.02.2016.
  */
 public class Job implements Comparable<Job> {
 
@@ -14,6 +15,7 @@ public class Job implements Comparable<Job> {
 
     private Double reward = 0.0;
     private Double cost = 1.0;
+    private Double totalWeight = 0.0;
 
     private List<Pick> pickList;
 
@@ -31,7 +33,7 @@ public class Job implements Comparable<Job> {
         String[] argsSplit = _args.split(",");
 
         this.ID = argsSplit[0];
-        this.pickList = new LinkedList<>();
+        this.pickList = new ArrayList<>();
 
         for(int i = 1; i < argsSplit.length; i+= 2){
             pickList.add(
@@ -42,7 +44,7 @@ public class Job implements Comparable<Job> {
             );
         }
 
-        pickList.stream().forEach(e -> reward += e.ITEM.getReward() * e.PICK_COUNT);
+        pickList.stream().forEach(e -> {reward += e.ITEM.getReward() * e.PICK_COUNT; totalWeight += e.ITEM.getWeight() * e.PICK_COUNT;});
 
         robotPicks = new ArrayList<>();
     }
@@ -81,6 +83,14 @@ public class Job implements Comparable<Job> {
     }
 
     /**
+     * @return the total weight of the items
+     */
+
+    public Double getTotalWeight() {
+        return totalWeight;
+    }
+
+    /**
      * @return the list of picks in the job
      */
 
@@ -89,29 +99,38 @@ public class Job implements Comparable<Job> {
     }
 
     /**
-     * orders the picks in this job based on the information about the world
+     * @return and ArrayList<ArrayList<Picks>> containing the picks for each robot
      */
 
-    public void orderPicking(WorldEntry _world,ItemTable _items,Integer[] rx_coord,Integer[] ry_coord,LinkedList<Drop> drops){
+    public ArrayList<List<Pick>> getRobotPicks() {
+        return robotPicks;
+    }
 
-        if(rx_coord.length == 1 && rx_coord[0].equals(-1)){
-            rx_coord[0] = pickList.get(0).ITEM.getX_coord();
-            ry_coord[0] = pickList.get(0).ITEM.getY_coord();
-        }
+    /**
+     * Orders the picks in this job based on the information about the world
+     * For this purpose it is using the Traveling Salesman Problem for multiple robots
+     * @param _world = the entry containing the data about the world in which the robots are moving
+     * @param rx_coord = the array containing the x coordinates of the robots
+     * @param ry_coord = the array containing the y coordinates of the robots
+     * @param _drops = the list of dropping locations
+     */
+
+    public void orderPicking(WorldEntry _world,Integer[] rx_coord,Integer[] ry_coord,LinkedList<Drop> _drops){
+
         Set<Pick> frontier = new HashSet<>();
 
         for (Pick p : pickList) {
             frontier.add(p);
         }
 
-        SingleRobotTSP organizer = new SingleRobotTSP(rx_coord, ry_coord, _world.worldDistances, frontier, drops);
+        robotPicks.clear();
 
-        organizer.solveTSPUsingHeuristicApproach();
-        //organizer.solveTSPUingExahustiveSearch();
+        MultiRobotWeightLimitTSP organizer = new MultiRobotWeightLimitTSP(rx_coord,ry_coord,_world.worldDistances,frontier,_drops,50.0);
 
+        organizer.solveTSPUsingAuctioning();
 
-        pickList = organizer.getPickList();
-        cost = organizer.getCost();
+        robotPicks = organizer.getPickListForAllRobots();
+        cost = organizer.getResultCost();
     }
 
     /**
@@ -122,12 +141,27 @@ public class Job implements Comparable<Job> {
 
     @Override
     public int compareTo(Job o) {
-        return ((Double)(reward/cost)).compareTo((Double)(o.getReward()/o.getCost()));
+
+        if(((Double)(reward/cost)).compareTo(o.getReward()/o.getCost()) == 0){
+            return (-1) * ((Double)(reward/totalWeight)).compareTo(o.getReward()/o.getTotalWeight());
+        }else
+            return (-1)*((Double)(reward/cost)).compareTo(o.getReward()/o.getCost());
     }
 
     @Override
     public String toString(){
-        return ID + " " + reward + " " + cost + " " + pickList.toString() ;
+        //return ID + " " + reward + " " + cost + "\n" + pickList.toString() ;
+
+        String msg = "";
+
+        int i = 1;
+        for(List<Pick> list : robotPicks){
+
+            msg = msg + "number " + i + " " + list + "\n";
+            i++;
+        }
+
+        return ID + " " + reward + " " + cost + "\n" + msg;
     }
 
 }

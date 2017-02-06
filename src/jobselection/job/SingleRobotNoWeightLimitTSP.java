@@ -7,7 +7,7 @@ import java.util.*;
  *  The class that solves the Traveling Salesman Problem for a single
  *  robot and no weight limit
  */
-class SingleRobotTSP {
+class SingleRobotNoWeightLimitTSP {
 
     private Integer[][][][] w_distances;
 
@@ -18,10 +18,10 @@ class SingleRobotTSP {
     private Double cost = Double.MAX_VALUE;
     private Integer resultCost = 0;
 
-    private Integer[] rx_coord;
-    private Integer[] ry_coord;
+    private Integer rx_coord;
+    private Integer ry_coord;
 
-    protected SingleRobotTSP(Integer[] _rx_coord, Integer[] _ry_coord, Integer[][][][] _p_distances, Set<Pick> _frontier, LinkedList<Drop> _drops){
+    protected SingleRobotNoWeightLimitTSP(Integer _rx_coord, Integer _ry_coord, Integer[][][][] _p_distances, Set<Pick> _frontier, List<Drop> _drops){
 
         this.w_distances = _p_distances;
 
@@ -39,7 +39,7 @@ class SingleRobotTSP {
      * using Exhaustive Search
      */
 
-    protected void solveTSPUingExahustiveSearch(){
+    protected void solveTSPUsingExhaustiveSearch(){
 
         backTracking(
                 0,frontier.size(),
@@ -48,25 +48,23 @@ class SingleRobotTSP {
                 frontier
         );
 
-
-
     }
 
 
 
     private Double solutionCost(Pick[] sol){
 
-        Double result = w_distances[sol[0].ITEM.getX_coord()][sol[0].ITEM.getY_coord()][rx_coord[0]][ry_coord[0]].doubleValue();
+        Double costResult = w_distances[sol[0].ITEM.getX_coord()][sol[0].ITEM.getY_coord()][rx_coord][ry_coord].doubleValue();
 
         for(int i = 0; i < sol.length - 1; i++){
 
-            result += w_distances[sol[i].ITEM.getX_coord()][sol[i].ITEM.getY_coord()][sol[i+1].ITEM.getX_coord()][sol[i+1].ITEM.getY_coord()];
+            costResult += w_distances[sol[i].ITEM.getX_coord()][sol[i].ITEM.getY_coord()][sol[i+1].ITEM.getX_coord()][sol[i+1].ITEM.getY_coord()];
 
         }
 
-        result += w_distances[sol[sol.length - 1].ITEM.getX_coord()][sol[sol.length - 1].ITEM.getY_coord()][drops.get(0).x_coord][drops.get(0).y_coord];
+        costResult += w_distances[sol[sol.length - 1].ITEM.getX_coord()][sol[sol.length - 1].ITEM.getY_coord()][getClosestDroppingLocation(sol[sol.length-1],drops).x_coord][getClosestDroppingLocation(sol[sol.length-1],drops).y_coord];
 
-        return result;
+        return costResult;
     }
 
     /**
@@ -117,14 +115,14 @@ class SingleRobotTSP {
 
         result = new LinkedList<>();
 
-        Pick closestPick = getClosest(0);
+        Pick closestPick = getClosest();
         result.add(closestPick);
         frontier.remove(closestPick);
 
         try {
 
-            resultCost = distance(drops.get(0), closestPick)
-                    + distance(rx_coord[0], ry_coord[0], closestPick);
+            resultCost = distance(getClosestDroppingLocation(closestPick,drops), closestPick)
+                    + distance(rx_coord, ry_coord, closestPick);
         }catch (Exception e){
             System.out.println(drops);
             e.printStackTrace();
@@ -143,19 +141,17 @@ class SingleRobotTSP {
     }
 
     /**
-     * Get the closeset pick to the robot
-     * @param r_number = the number of the robot
-     * @return
+     * Get the closest pick to the robot
      */
 
-    private Pick getClosest(int r_number){
+    private Pick getClosest(){
 
         Pick closestPick = null;
         Integer closestPickDistance = Integer.MAX_VALUE;
 
         for(Pick p : frontier){
-            if(closestPickDistance > distance(rx_coord[0],ry_coord[0],p)){
-                closestPickDistance = distance(rx_coord[0],ry_coord[0],p);
+            if(closestPickDistance > distance(rx_coord,ry_coord,p)){
+                closestPickDistance = distance(rx_coord,ry_coord,p);
                 closestPick = p;
             }
         }
@@ -193,6 +189,30 @@ class SingleRobotTSP {
     }
 
     /**
+     * Finds the closest dropping point for the given pick
+     * @param p = the given pick
+     * @param drops = the list of available dropping points
+     * @return a Drop object representing the closest dropping location
+     */
+
+    private Drop getClosestDroppingLocation(Pick p , List<Drop> drops){
+
+        Drop location = null;
+        Integer smallestDistanceToDrop = Integer.MAX_VALUE;
+
+        for(Drop d : drops){
+
+            if(distance(d,p) < smallestDistanceToDrop){
+                smallestDistanceToDrop = distance(d,p);
+                location = d;
+            }
+        }
+
+        return location;
+    }
+
+
+    /**
      * Inserts a pick into a list on the position that generates the lowest cost
      * @param p
      * @param list
@@ -208,14 +228,17 @@ class SingleRobotTSP {
 
         //insert it at the front(initially)
         auxCost = distance(p,list.get(0)) + resultCost
-                    - distance(rx_coord[0],ry_coord[0],list.get(0))
-                    + distance(rx_coord[0],ry_coord[0],p);
+                    - distance(rx_coord,ry_coord,list.get(0))
+                    + distance(rx_coord,ry_coord,p);
 
         //try insert it at the back
-        if(auxCost > resultCost + distance(p,list.get(list.size()-1)) + distance(drops.get(0),p) - distance(drops.get(0),list.get(list.size()-1))){
+
+        Drop closestDrop = getClosestDroppingLocation(p,drops);
+
+        if(auxCost > resultCost + distance(p,list.get(list.size()-1)) + distance(closestDrop,p) - distance(closestDrop,list.get(list.size()-1))){
             auxCost = resultCost + distance(p,list.get(list.size()-1))
-                                 + distance(drops.get(0),p)
-                                 - distance(drops.get(0),list.get(list.size()-1));
+                                 + distance(closestDrop,p)
+                                 - distance(closestDrop,list.get(list.size()-1));
             insertPose = list.size();
         }
 

@@ -66,7 +66,10 @@ public class FileContentReader {
 
 
         reader.lines().forEach(
-                (String line) -> fileContent.add(new Item(line))
+                (String line) -> {
+                    if(!line.equals("") && !line.equals("\n"))
+                        fileContent.add(new Item(line));
+                }
         );
 
         reader.close();
@@ -88,18 +91,21 @@ public class FileContentReader {
 
         reader.lines().forEach(
                 (String line) -> {
-                    //split the line containing the location in 3 and then set this location
-                    // for the element described
+                    if(!line.equals("") && !line.equals("\n")){
 
-                    String[] lineSplit = line.split(",");
+                        //split the line containing the location in 3 and then set this location
+                        // for the element described
 
-                    //set the location of the item in the table
+                        String[] lineSplit = line.split(",");
 
-                    itemTable.setLocation(
-                            lineSplit[2],
-                            Integer.parseInt(lineSplit[0]),
-                            Integer.parseInt(lineSplit[1])
-                    );
+                        //set the location of the item in the table
+
+                        itemTable.setLocation(
+                                lineSplit[2],
+                                Integer.parseInt(lineSplit[0]),
+                                Integer.parseInt(lineSplit[1])
+                        );
+                    }
                 }
         );
 
@@ -119,7 +125,7 @@ public class FileContentReader {
      * @throws IOException
      */
 
-    public static Collection<Job> getJobFileContent(String _filePath, ItemTable _itemTable, WorldEntry _world,LinkedList<Drop> dropList) throws IOException , FileNotFoundException{
+    public static Collection<Job> getJobFileContent(String _filePath, ItemTable _itemTable, WorldEntry _world,LinkedList<Drop> dropList,Integer[] rx_coord,Integer[] ry_coord) throws IOException , FileNotFoundException{
 
         //using a treeSet to keep the jobs sorted
         TreeSet<Job> jobSet = new TreeSet<Job>();
@@ -127,18 +133,15 @@ public class FileContentReader {
         BufferedReader reader = new BufferedReader(new FileReader(_filePath));
         String line;
 
+
         while((line = reader.readLine()) != null){
 
-            Job aux = new Job(line,_itemTable);
-            Integer[] auxArr = new Integer[1];
-            auxArr[0] = -1;
-            aux.orderPicking(_world,_itemTable,auxArr,auxArr,dropList);
-            jobSet.add(aux);
+            if(!line.equals("") && !line.equals("\n")){
+                Job aux = new Job(line,_itemTable);
 
-            if(jobSet.size() > 100){
-                jobSet.remove(jobSet.first());
+                aux.orderPicking(_world, rx_coord, ry_coord, dropList);
+                jobSet.add(aux);
             }
-
         }
 
 
@@ -162,7 +165,11 @@ public class FileContentReader {
         LinkedList<Drop> content = new LinkedList<>();
 
         reader.lines().forEach(
-                (String e) -> content.add(new Drop(e))
+                (String line) -> {
+                    if(!line.equals("") && !line.equals("\n")) {
+                        content.add(new Drop(line));
+                    }
+                }
         );
 
         reader.close();

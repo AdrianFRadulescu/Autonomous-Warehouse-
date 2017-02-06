@@ -13,6 +13,10 @@ public class Item implements Comparable<Item> {
     private int x_coord;
     private int y_coord;
 
+
+    private Integer cancelledCount; //the number of jobs that contained this item and were cancelled
+    private Integer jobCount; //the number of jobs that contained this item
+
     /**
      * Takes a string(containingh an item description)
      * and transforms it into an Item object
@@ -29,6 +33,9 @@ public class Item implements Comparable<Item> {
 
         this.reward = Double.parseDouble(argsSplit[1]);
         this.weight = Double.parseDouble(argsSplit[2]);
+
+        jobCount = new Integer(0);
+        cancelledCount = new Integer(0);
 
     }
 
@@ -57,6 +64,14 @@ public class Item implements Comparable<Item> {
         return y_coord;
     }
 
+    public Integer getCancelledCount() {
+        return cancelledCount;
+    }
+
+    public Integer getJobCount() {
+        return jobCount;
+    }
+
     /**
      * Setters
      */
@@ -83,6 +98,14 @@ public class Item implements Comparable<Item> {
 
     public String toString(){
         return name + " " + reward + " " + weight + " " + x_coord + " " + y_coord;
+    }
+
+    public void setCancelledCount() {
+        this.cancelledCount++;
+    }
+
+    public void setJobCount() {
+        this.jobCount ++;
     }
 
     /**

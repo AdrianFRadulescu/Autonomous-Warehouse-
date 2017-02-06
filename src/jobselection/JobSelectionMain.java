@@ -1,16 +1,12 @@
 package jobselection;
 
 import jobselection.item.ItemTable;
-import jobselection.job.Drop;
-import jobselection.job.Job;
-import jobselection.job.JobHashTable;
-import jobselection.job.JobTable;
+import jobselection.job.*;
 import jobselection.reading.InputReader;
 import routeplanning.AStar;
+import routeplanning.Node;
 
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.PriorityQueue;
+import java.util.*;
 
 
 /**
@@ -24,13 +20,11 @@ import java.util.PriorityQueue;
  */
 
 @SuppressWarnings("unchecked")
-public class JobSelectionMain extends Thread {
+public class JobSelectionMain {
 
     private ItemTable itemTable;
     private JobTable jobTable;
     private PriorityQueue<Job> jobQueue; //the collection in which the jobs are stored
-
-    private boolean suppressed; //indicates whether this thread should continue or not
 
     public JobSelectionMain(){
         this.jobQueue = new PriorityQueue<Job>();
@@ -51,20 +45,12 @@ public class JobSelectionMain extends Thread {
      * The part that interacts with the system
      */
 
-    @Override
     public void run(){
 
         //calculate the shortest ways between places
         world = worldDistances();
 
-        InputReader.main(this,world);
-
-        /*
-        while(!suppressed){
-
-        }
-        * */
-
+        InputReader.main(this,world,rx_coord,ry_coord);
 
     }
 
@@ -87,14 +73,6 @@ public class JobSelectionMain extends Thread {
     }
 
     /**
-     * sets the suppressed parameter
-     */
-
-    public void setSuppressed(){
-        this.suppressed = true;
-    }
-
-    /**
      * sets a given table as the item-table used in this class
      * To be called ONLY from InputReader Class
      * @param _table = value the table will have
@@ -102,16 +80,6 @@ public class JobSelectionMain extends Thread {
 
     public void setItemTable(ItemTable _table){
         this.itemTable = _table;
-    }
-
-    /**
-     * sets a given table as the job-table used in this class
-     * TO BE ACCESSED ONLY FROM InputReader Class
-     * @param _table a table of jobs
-     */
-
-    public void setJobTable(JobTable _table){
-        this.jobTable = _table;
     }
 
     /**
@@ -134,9 +102,9 @@ public class JobSelectionMain extends Thread {
      * called in the InputReader class
      */
 
-    public void setJobQueue(){
+    public void setJobQueue(Collection<Job> _jobCollection){
 
-        jobTable.values().stream().forEach(e -> jobQueue.add(e));
+        _jobCollection.stream().forEach(e -> jobQueue.add(e));
 
     }
 
@@ -153,7 +121,7 @@ public class JobSelectionMain extends Thread {
 
             Job auxJob = j;
 
-            auxJob.orderPicking(world,itemTable,rx_coord,ry_coord,drops);
+            auxJob.orderPicking(world,rx_coord,ry_coord,drops);
             aux.add(auxJob);
         }
 
@@ -169,11 +137,31 @@ public class JobSelectionMain extends Thread {
      */
 
     public Job selectJob(){
-        return jobQueue.poll();
+
+        Job returnJob = jobQueue.poll();
+
+        returnJob.getPickList().forEach(
+                e -> itemTable.get(e.ITEM.getName()).setJobCount()
+        );
+
+        //count the number of jobs with this
+        world.sizePredictions.setJobCount(returnJob.getPickList().size());
+
+        return returnJob;
     }
 
+    /**
+     * Returns thejobs grouped according to the order in which they will be
+     * executed(this is done after the comparison key between jobs)
+     * @return the jobs in the form of a TreeSet
+     */
+
     public Collection<Job> getJobCollection(){
-        return this.jobQueue;
+
+        TreeSet<Job> jobSet = new TreeSet<>();
+        jobQueue.forEach(e -> jobSet.add(e));
+
+        return jobSet;
     }
 
     /**
@@ -220,11 +208,15 @@ public class JobSelectionMain extends Thread {
                 for(int gi = 0; gi < worldXSize; gi++){
                     for(int gj = 0; gj < worldYSize; gj++){
 
-                        AStar as = new AStar(new routeplanning.State(si,sj),new routeplanning.State(gi,gj));
-                        //routes[si][sj][gi][gj] = as.findPath();
-                        //distances[si][sj][gi][gj] = routes[si][sj][gi][gj].length();
-                        distances[si][sj][gi][gj] = as.manhatanDistace(new routeplanning.State(si,sj),new routeplanning.State(gi,gj));
+                        AStar as = new AStar(new Node(null,si,sj,"start"),new Node(null,gi,gj,"goal"));
+                        String route = "";
 
+                        for(Node node : as.findPath(-1)){
+                            route += node.getMove();
+                        }
+
+                        routes[si][sj][gi][gj] = route;
+                        distances[si][sj][gi][gj] = routes[si][sj][gi][gj].length();
                     }
                 }
             }
@@ -234,9 +226,61 @@ public class JobSelectionMain extends Thread {
 
     }
 
+    /**
+     * Sets the dropping locations
+     * @param _drops
+     */
 
     public void setDrops(LinkedList<Drop> _drops){
         this.drops = _drops;
+    }
+
+    /**
+     * Returns the locations of the droping points
+     * @return
+     */
+
+    public LinkedList<Drop> getDrops() {
+        return drops;
+    }
+
+    /**
+     * @return  an entry containing the information about the world of the robots
+     */
+
+    public WorldEntry getWorld() {
+        return world;
+    }
+
+    /**
+     * Returns the table conatining the items
+     * @return
+     */
+
+    public ItemTable getItemTable() {
+        return itemTable;
+    }
+
+    /**
+     * Returns a sorted collection of jobs(SortedSet)
+     * @return
+     */
+
+    public SortedSet<Job> getSortedJobs(){
+        return new TreeSet<>(jobQueue);
+    }
+
+
+    public void jobHasBeenCancelled(Job _job){
+        _job.getPickList().forEach(
+                e ->{
+                    itemTable.get(e.ITEM.getName()).setCancelledCount();
+                }
+        );
+        world.cancelJob(_job);
+
+        //count the number of cancelled jobs in which the number of items is equal to _job.getPickList().size()
+        world.sizePredictions.setCancelledCount(_job.getPickList().size());
     }
 
 }

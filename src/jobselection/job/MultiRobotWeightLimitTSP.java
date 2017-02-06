@@ -1,57 +1,129 @@
 package jobselection.job;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import javafx.beans.DefaultProperty;
+
+import java.util.*;
 
 /**
- * Created by adrian_radulescu1997 on 19.03.2016.
+ * The class representing the object which is responsible for the
+ * allocation of picks for the robots when executing a job
+ * It does that by solving the Traveling Salesman Problem for multiple robots
+ * and then selecting the cost of the job as being the highest of the
+ * individual costs for each robot to finish his job
+ * Created by Adrian Radulescu on 19.03.2016.
  */
-class MultiRobotWeightLimitTSP {
+
+@SuppressWarnings("unchecked")
+public class MultiRobotWeightLimitTSP {
 
     private Integer [][][][] w_distances;
 
     private Set<Pick> frontier;
-    private List<Pick> result;
     private List<Drop> drops;
 
-    private Double cost = Double.MAX_VALUE;
-    private Integer resultCost = 0;
+    private Double resultCost;
 
-    private Integer[] rx_coord;
-    private Integer[] ry_coord;
+    private final Integer[] rx_coord;
+    private final Integer[] ry_coord;
 
     private ArrayList<List<Pick>> robotPicks;
 
     private Double weightLimit; // the limit of the weight a robot can transport
 
-    protected MultiRobotWeightLimitTSP(Integer[] _rx_coord, Integer[] _ry_coord, Integer[][][][] _p_distances, Set<Pick> _frontier, List<Drop> _drops){
+    /**
+     * Construct the solver object for the capacitated TSP for multiple robots
+     * @param _rx_coord = the x coordinates of the robots
+     * @param _ry_coord = the y coordinate of the robots
+     * @param _w_distances = the distances between different places in the world of the robots
+     * @param _frontier = the frontier of picks the robots must be assigned
+     * @param _drops = the droping locations for those picks
+     */
 
-        this.w_distances = _p_distances;
+    protected MultiRobotWeightLimitTSP(Integer[] _rx_coord, Integer[] _ry_coord, Integer[][][][] _w_distances, Set<Pick> _frontier, List<Drop> _drops,Double _weightLimit){
+
+        this.w_distances = _w_distances;
 
         this.frontier = _frontier;
         this.drops = _drops;
 
-
         this.rx_coord = _rx_coord;
         this.ry_coord = _ry_coord;
 
+        this.weightLimit = _weightLimit;
+
         robotPicks = new ArrayList<>();
+
+        for(int i = 0; i < rx_coord.length; i++){
+            robotPicks.add(new ArrayList<>());
+
+        }
+
+        this.resultCost = 0.0;
 
     }
 
 
     /**
-     * The class that stores the features for the object coordinating
+     * The class that has the features for the object coordinating
      * the auctioning process
      */
 
-    private class Auctioner{
+    @DefaultProperty("Auctioneer")
+    private class Auctioneer{
 
-        public void selectWinnerFromBidders(){
+        private Set<Pick> wares; // the set of picks that will be auctioned to the robots
+        private PriorityQueue<Bid> bids;
 
+
+        private ArrayList<List<Pick>> r_picks;
+        private LinkedList<Double> r_picksCost; // the cost to do the picks from a robot's pickList
+
+        /**
+         * Construct the Auctioner object
+         * @param _wares = the set of picks that will be auctioned
+         */
+
+        protected Auctioneer(Set<Pick> _wares){
+
+            this.wares = (HashSet<Pick>)((HashSet<Pick>)_wares).clone();
+
+            r_picks = new ArrayList<>();
+            r_picksCost = new LinkedList<>();
+
+            for(int i = 0; i < rx_coord.length; i++) {
+                r_picks.add(new LinkedList<>());
+                r_picksCost.add(0.0);
+            }
+
+            bids = new PriorityQueue<>();
         }
 
+        /**
+         * Starts and coordinates the auction for picks
+         */
+        protected void commenceAuction(){
+
+            while(!wares.isEmpty()){
+
+                //for each robot bid on the closest pick and insert the bids into a queue
+                for (int i = 0; i < rx_coord.length; i++){
+
+                    bids.add(new Bid(i, rx_coord[i], ry_coord[i], r_picks.get(i), wares));
+                }
+
+                //extract the head of the queue and update the status of the winning robot
+                wares.remove(bids.peek().bidPick);
+
+                r_picks.set(bids.peek().r_id,bids.peek().resultingPickList);
+
+                r_picksCost.set(bids.peek().r_id, bids.peek().bidValue);
+
+                //after that clear the queue
+                bids.clear();
+            }
+
+
+        }
     }
 
     /**
@@ -59,9 +131,10 @@ class MultiRobotWeightLimitTSP {
      *
      */
 
-    private class Bid{
+    private class Bid implements Comparable<Bid>{
 
         // the external parameters of the bid a robot makes
+        private Integer r_id;
         private Pick bidPick;
         private Double bidValue;
 
@@ -69,195 +142,102 @@ class MultiRobotWeightLimitTSP {
         private Integer rx_coord; // the coordinates of the bidding robot
         private Integer ry_coord;
 
-        private Double currentWeight; // the weight of the items the robot is carrying till now
         private List<Pick> currentPicks; // the list of picks this robot will surely execute
-        private Set<Pick> frontier; // the frontier of picks form which a robot can make a bid
+        private List<Pick> resultingPickList; // the resulting list(if the bid were to be the winning one)
+        private Set<Pick> auctionWares; // the frontier of picks form which a robot can make a bid
 
         private Pick auctionProduct; // pick the robot will auction for
 
         /**
          * Constructs a bid made by a robot during the auctioning
-         * @param _rx_coord
-         * @param _ry_coord
-         * @param _currentWeight
-         * @param _currentPicks
+         * @param _r_id = the id of the bidding robot
+         * @param _rx_coord = the x coordinate of the bidding robot
+         * @param _ry_coord = the y coordinate of the bidding robot
+         * @param _currentPicks = the list of the picks the robot has already won
+         * @param _wares = the set of picks that are available
          */
 
-        protected Bid(Integer _rx_coord,Integer _ry_coord,Double _currentWeight,List<Pick> _currentPicks,Set<Pick> _frontier){
+        protected Bid(int _r_id,Integer _rx_coord,Integer _ry_coord,List<Pick> _currentPicks,Set<Pick> _wares){
 
+            this.r_id = _r_id;
             this.rx_coord = _rx_coord;
             this.ry_coord = _ry_coord;
-            this.currentWeight = _currentWeight;
             this.currentPicks = _currentPicks;
-            this.frontier = _frontier;
+            this.auctionWares = _wares;
 
             bidPick = null;
             bidValue = Double.MAX_VALUE;
 
-            for (Pick p : frontier){
 
-                Double newCost =
+            for (Pick p : auctionWares){
 
+                //check all the available picks and select the one that costs the least for bidding
+                Set<Pick> testFrontier = new HashSet<>(currentPicks);
+                testFrontier.add(p);
 
-            }
+                SingleRobotWeightLimitTSP organizer = new SingleRobotWeightLimitTSP(rx_coord, ry_coord, w_distances, testFrontier, drops,weightLimit);
 
+                organizer.solveTSPUsingHeuristicApproach();
 
-        }
-
-
-
-        protected Pick getBidPick() {
-            return bidPick;
-        }
-
-        protected Double getBidValue() {
-            return bidValue;
-        }
-
-    }
-
-
-    /**
-     * Solve the TSP capacitated problem for more than one robot
-     * using auctioning
-     */
-
-    public void solveTSPUsingAuctioning(){
-
-    }
-
-    /**
-     * Get the closeset pick to the robot
-     * @param r_number = the number of the robot
-     * @return
-     */
-
-    private Pick getClosest(int r_number){
-
-        Pick closestPick = null;
-        Integer closestPickDistance = Integer.MAX_VALUE;
-
-        for(Pick p : frontier){
-            if(closestPickDistance > distance(rx_coord[r_number],ry_coord[r_number],p)){
-                closestPickDistance = distance(rx_coord[r_number],ry_coord[r_number],p);
-                closestPick = p;
-            }
-        }
-
-        return closestPick;
-    }
-
-    /**
-     * Get the pick that is the closest to one of the picks in the result
-     * @param _from = the set of picks form which we take the closest pick to
-     * the result set
-     * @param _to = the list in which we will put the closest pick
-     * @return
-     */
-
-    private Pick getClosest(Set<Pick> _from,List<Pick> _to){
-
-        Pick closestPick = null;
-        Integer closestPickDistance = Integer.MAX_VALUE;
-
-        for(Pick fp : _from){
-
-            for(Pick tp: _to){
-
-                if(closestPickDistance > distance(fp,tp)){
-                    closestPickDistance = distance(fp,tp);
-                    closestPick = fp;
+                //compare with the current option
+                if (organizer.getCost() < bidValue) {
+                    bidValue = organizer.getCost();
+                    bidPick = p;
+                    resultingPickList = organizer.getPickList();
                 }
 
             }
 
         }
 
-        return closestPick;
+        /**
+         * Compares this object with the specified object for order.  Returns a
+         * negative integer, zero, or a positive integer as this object is less
+         * than, equal to, or greater than the specified object.
+         */
+        @Override
+        public int compareTo(Bid o) {
+            return bidValue.compareTo(o.bidValue);
+        }
     }
 
+
     /**
-     * Inserts a pick into a list on the position that generates the lowest cost
-     * @param p
-     * @param list
-     * @return
+     * Solve the TSP capacitated problem for more than one robot
+     * using auctioning.
+     * After the auction is over iterate over the cost array
+     * for the Auctioneer class(containing the cost for each robot to finish the picks it auctioned for)
+     * and select the highest one as this is the only one that actually matters
+     * since the other robots will have most likely finished their tasks until
+     * the robot with the highest cost will finish
      */
 
-    private Integer insert(Pick p,List<Pick> list){
+    public void solveTSPUsingAuctioning(){
 
-        Integer auxCost = Integer.MAX_VALUE;
+        Auctioneer NoBribesHere = new Auctioneer(frontier);
 
-        int insertPose = 0; // the position at which the pick will be inserted in the end
+        NoBribesHere.commenceAuction();
 
+        robotPicks =  NoBribesHere.r_picks;
 
-        //insert it at the front(initially)
-        auxCost = distance(p,list.get(0)) + resultCost
-                - distance(rx_coord[0],ry_coord[0],list.get(0))
-                + distance(rx_coord[0],ry_coord[0],p);
-
-        //try insert it at the back
-        if(auxCost > resultCost + distance(p,list.get(list.size()-1)) + distance(drops.get(0),p) - distance(drops.get(0),list.get(list.size()-1))){
-            auxCost = resultCost + distance(p,list.get(list.size()-1))
-                    + distance(drops.get(0),p)
-                    - distance(drops.get(0),list.get(list.size()-1));
-            insertPose = list.size();
+        //get the highest cost for a robot to perform his task
+        for(Double i : NoBribesHere.r_picksCost){
+            resultCost = Math.max(resultCost,i);
         }
 
 
-
-        //iterate over the list and try to insert it between two picks
-
-        for(int i = 1; i < list.size(); i++){
-
-            //the two picks between which we are trying to put the robot
-            Pick prev = list.get(i-1);
-            Pick next = list.get(i);
-
-            if(auxCost > resultCost - distance(next,prev) + distance(p,prev) + distance(p,next)){
-                auxCost = resultCost - distance(next,prev) + distance(p,prev) + distance(p,next);
-                insertPose = i;
-            }
-
-        }
-
-        list.add(insertPose,p);
-
-        return auxCost;
-    }
-
-    /**
-     * @param first = a pick
-     * @param second = a pick
-     * @return the distace between the two picks
-     */
-
-    private Integer distance(Pick first,Pick second){
-        return w_distances[first.ITEM.getX_coord()][first.ITEM.getY_coord()][second.ITEM.getX_coord()][second.ITEM.getY_coord()];
-    }
-
-    /**
-     * Calculates the distance between robot and pick
-     * @param rx_coord
-     * @param ry_coord
-     * @param _pick
-     * @return
-     */
-
-    private Integer distance(Integer rx_coord,Integer ry_coord,Pick _pick){
-        return w_distances[rx_coord][ry_coord][_pick.ITEM.getX_coord()][_pick.ITEM.getY_coord()];
-    }
-
-
-    private Integer distance(Drop d,Pick p){
-        return w_distances[d.x_coord][d.y_coord][p.ITEM.getX_coord()][p.ITEM.getY_coord()];
     }
 
     /**
      * @return a list for each robot containing the picks he has to do
      */
 
-    protected ArrayList<List<Pick>> getPickListForEachRobot(){
+    protected ArrayList<List<Pick>> getPickListForAllRobots(){
         return robotPicks;
     }
 
+
+    public Double getResultCost() {
+        return resultCost;
+    }
 }
