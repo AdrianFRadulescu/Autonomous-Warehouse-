@@ -14,6 +14,7 @@ When a job is completed the user will call a method in the class which returns a
 and 3 packages :
 
 A.reading:
+    
     1.FileContentReader - a class with static methods that read the content form each input file,
                         converts it to its appropriate form(Items,Jobs) and sends the information to the InputReader class.
                         For the job reading it uses a TreeSet to store the most rewarding jobs.
@@ -21,6 +22,7 @@ A.reading:
     2.InputReader - a class that receives the information for each file and stores it into tables for quick access.
     
 B.item :
+        
         1.Item : a class representing the decription of an item.As the locations are in a diffrent file,
                 the constructor only initialises the weight and reward parameters.
                 For the location there are setters wich are called later when the location file is read.
@@ -28,6 +30,7 @@ B.item :
         3.ItemHashTable : a implementation of the ItemTable interface using a HashMap
     
 C.job :
+        
         1.Job : a class representing the description of a job.
             It contains fileds for the minimum overall cost of the job , the total reward and the list of picks in the job  as well as getters and setters fo those values. It also contains a method for calculating the oder of the picks in the job(which is executed by the instances of other two classes) 
                 and a method for calculating the cancellation chances.
