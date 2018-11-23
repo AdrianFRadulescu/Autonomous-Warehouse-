@@ -15,11 +15,11 @@ and 3 packages :
 
 A.reading:
     
-    1.FileContentReader - a class with static methods that read the content form each input file,
+      1.FileContentReader - a class with static methods that read the content form each input file,
                         converts it to its appropriate form(Items,Jobs) and sends the information to the InputReader class.
                         For the job reading it uses a TreeSet to store the most rewarding jobs.
 
-    2.InputReader - a class that receives the information for each file and stores it into tables for quick access.
+      2.InputReader - a class that receives the information for each file and stores it into tables for quick access.
     
 B.item :
         
