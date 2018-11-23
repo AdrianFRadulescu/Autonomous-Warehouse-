@@ -13,12 +13,12 @@ When a job is completed the user will call a method in the class which returns a
 
 and 3 packages :
 
-A.reading :
-  1.FileContentReader - a class with static methods that read the content form each input file,
+A.reading:
+    1.FileContentReader - a class with static methods that read the content form each input file,
                         converts it to its appropriate form(Items,Jobs) and sends the information to the InputReader class.
                         For the job reading it uses a TreeSet to store the most rewarding jobs.
 
-  2.InputReader - a class that receives the information for each file and stores it into tables for quick access.
+    2.InputReader - a class that receives the information for each file and stores it into tables for quick access.
     
 B.item :
         1.Item : a class representing the decription of an item.As the locations are in a diffrent file,
